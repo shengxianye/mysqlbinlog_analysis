@@ -6,7 +6,7 @@ MySQL自带的mysqlbinlog工具解析的log阅读不方便，且字段名替换�
 host,user,password,（因为需要替换成具体的字段名，所以需要连接数据库，建议在从库上运行）<br>  
 file_type：redo或者undo<br>  
 log_file： mysqlbinlog处理后日志名<br>  
-error_log：本脚本处理后的日志名<br>  
+target_log：本脚本处理后的日志名<br>  
 具体用法案例：<br>  
 step1:<br>  
 /www/env/mysql/bin/mysqlbinlog -v  --base64-output=DECODE-ROWS mysql-bin.002067 > 5.sql<br>  
@@ -14,7 +14,7 @@ step2:<br>
 修改脚本变量<br>  
 file_type = redo<br>  
 logfile = /data/5.sql<br>  
-error_log = /data/5.log<br>  
+target_log = /data/5.log<br>  
 step3:<br>  
 python ／data/mysqlbinlog_query.py<br>  
 在data下会生成5.log,进入数据库可直接source 5.log,进行redo动作。<br>  
