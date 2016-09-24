@@ -11,13 +11,10 @@ target_log：本脚本处理后的日志名<br>
 step1:<br>  
 /www/env/mysql/bin/mysqlbinlog -v  --base64-output=DECODE-ROWS mysql-bin.002067 > 5.sql<br>  
 step2:<br>  
-修改脚本变量<br>  
-file_type = redo<br>  
-logfile = /data/5.sql<br>  
-target_log = /data/5.log<br>  
-step3:<br>  
-python ／data/mysqlbinlog_query.py<br>  
-在data下会生成5.log,进入数据库可直接source 5.log,进行redo动作。<br>  
-PS:<br>  
-1.这个脚本只能提取update，delete，insert语句，如果有alter语句，不会做处理，有未知的情况，具体还没测试<br>  
-2.提取undo的时候，具体执行sql顺去请从文件尾往上执行，后期待完善<br>  
+python mysqlbinlog_query.py --host localhost --user root --password agm43gadsg --mode redo --infile /www/env/mysql/arch/4.sql --outfile /www/env/mysql/arch/4.log  --filtertable istics_positions --filterdml UPDATE<br>  
+mode 可选2个参数，分别时redo和undo   <br> 
+infile      输入文件名<br> 
+outfile     输出文件名<br> 
+filtertable 过滤表名(TABLE1)<br> 
+filterdml   过滤dml动作（DELETE INSERT UPDATE）<br> 
+
