@@ -2,9 +2,6 @@
 #!/usr/bin/python
 import re, hashlib, time, datetime
 import MySQLdb
-#from elasticsearch import Elasticsearch
-#from elasticsearch import helpers
-#import requests, json
 import optparse
 import sys,os
 reload(sys)
@@ -24,9 +21,8 @@ def mysql_column_list(host,user,password):
         column = row[2]
         order = row[3]    
         if database in column_dict:
-            if table in column_dict[database]:     #此处判断一定要对，太坑了
+            if table in column_dict[database]:     
                 column_dict[database][table].update({ order : column })
-                #column_dict[database][table][order] = column
             else:
                 column_dict[database].update( { table : { order : column } })
         else:
@@ -40,16 +36,16 @@ def redo_sql(sql_action,column_dict,dbname,tablename,sql):
     column_num = len(column_dict[dbname][tablename])
     if sql_action == 'INSERT':
         sql = sql.replace("SET",'values(')
-        for i in range(int(column_num),0,-1):       #替换values的值
+        for i in range(int(column_num),0,-1):      
             if i == 1:                          
                 sql = sql.replace('@'+str(i)+'=',"")
             else:
                 sql = sql.replace('@'+str(i)+'=',",") 
         sql = sql + ");"
     if sql_action == 'UPDATE':
-        sql_set = sql.split('SET')[1]   #获取set后的内容
-        sql_where = sql.split('WHERE')[1].split('SET')[0]  #获取where 和 set 之间的内容
-        sql_head = sql.split('WHERE')[0]    #获取update database.table 字符串
+        sql_set = sql.split('SET')[1]   
+        sql_where = sql.split('WHERE')[1].split('SET')[0]  
+        sql_head = sql.split('WHERE')[0]  
         for i in range(int(column_num),0,-1):
             if i == 1:
                 sql_set = sql_set.replace('@'+str(i) , "`"+column_dict[dbname][tablename][i]+"`")
@@ -75,16 +71,16 @@ def undo_sql(sql_action,column_dict,dbname,tablename,sql):
         sql = sql.replace("INSERT",'DELETE')
         sql = sql.replace("INTO","FROM")
         sql = sql.replace("SET","WHERE")
-        for i in range(int(column_num),0,-1):       #替换values的值
+        for i in range(int(column_num),0,-1):       
             if i == 1:
                 sql = sql.replace('@'+str(i),"`"+column_dict[dbname][tablename][i]+"`")
             else:
                 sql = sql.replace('@'+str(i),"AND "+"`"+column_dict[dbname][tablename][i]+"`")
         sql = sql + ";"  
     if sql_action == 'UPDATE':
-        sql_set = sql.split('SET')[1]   #获取set后的内容
-        sql_where = sql.split('WHERE')[1].split('SET')[0]  #获取where 和 set 之间的内容
-        sql_head = sql.split('WHERE')[0]    #获取update database.table 字符串
+        sql_set = sql.split('SET')[1]   
+        sql_where = sql.split('WHERE')[1].split('SET')[0]  
+        sql_head = sql.split('WHERE')[0]    
         for i in range(int(column_num),0,-1):
             if i == 1:
                 sql_set = sql_set.replace('@'+str(i) , "`"+column_dict[dbname][tablename][i]+"`")
@@ -111,31 +107,31 @@ def read_bin_log(infile,outfile,mode,column_dict,filtertable,filterdml):
     sql_info = []
     sql = ''
     rsize = 1024 * 1024 * 10
-    regex_sql = re.compile("###")              #匹配到update,insert,delete,alter,后期加工处理
-    regex_end = re.compile("COMMIT")           #匹配到commit
-    regex_float = re.compile(r"(\d+\.\d+)")    #匹配
+    regex_sql = re.compile("###")              
+    regex_end = re.compile("COMMIT")           
+    regex_float = re.compile(r"(\d+\.\d+)")    
     regex_table = re.compile("\`.*?\`")
-    regex_float = re.compile(r"(\(\d+)\)")     #匹配(255) (65534) 等奇怪的问题
+    regex_float = re.compile(r"(\(\d+)\)")   
     p = 0
     stdin_log = open(infile, 'r')
-    stdout_log = open(outfile, 'a+')         #用于写入错误日志
+    stdout_log = open(outfile, 'a+')       
     try:
         while True:
             stdin_log.seek(p, )             
-            lines = stdin_log.readlines(rsize)         #一次读取多行，大小为rsize
+            lines = stdin_log.readlines(rsize)       
             p = stdin_log.tell()
-            if lines:                                  #如果有记录数rsize，那么遍历行
-                for line in lines:                      #遍历行rsize
+            if lines:                                 
+                for line in lines:                 
                     if line.strip():  
                         try: 
                             line = line.encode('utf-8')
                         except:
                             line = line.decode('GB2312', 'ignore').encode('utf-8')
-                    if regex_timestamp.match(line):                        #匹配到时间
+                    if regex_timestamp.match(line):                     
                         sql_info.append(line.strip())
-                        time_stamp = sql_info[0].split('=')[1].split('/')[0]       #1472298067
+                        time_stamp = sql_info[0].split('=')[1].split('/')[0]     
                         timeArray = time.localtime(int(time_stamp))
-                        date_time_raw = time.strftime("%Y%m%d %H%M%S", timeArray)  #20160827 194107
+                        date_time_raw = time.strftime("%Y%m%d %H%M%S", timeArray) 
                     elif regex_sql.match(line):
                         sql = sql + line.strip()  
                     elif regex_end.match(line):
@@ -145,9 +141,9 @@ def read_bin_log(infile,outfile,mode,column_dict,filtertable,filterdml):
                         sql_action = sql_sp[0]
                         table_info = regex_table.findall(sql)
                         dbname = table_info[0]
-                        tablename = table_info[1]     #`table1`
+                        tablename = table_info[1]     
                         tablename2 = tablename.replace("`",'')
-                        if mode == "redo":                #生成redo log
+                        if mode == "redo":             
                             sql_redo =   redo_sql(sql_action,column_dict,dbname,tablename,sql)
                             sql_redo = "###" +  date_time_raw + "\n"  +  sql_redo
                             if filtertable == "ALL" and filterdml == "ALL":
@@ -160,7 +156,7 @@ def read_bin_log(infile,outfile,mode,column_dict,filtertable,filterdml):
                                 stdout_log.write(str(sql_redo) + '\n')
                             else:
                                 pass
-                        if mode == "undo":                #生成undo log
+                        if mode == "undo":              
                             sql_undo =   undo_sql(sql_action,column_dict,dbname,tablename,sql)
                             sql_undo = "###" +  date_time_raw + "\n" +sql_undo
                             if filtertable == "ALL" and filterdml == "ALL":
@@ -219,17 +215,17 @@ def main():
         print "please add args:e.g.--outfile /www/env/mysql/arch/5.log"
         exit();
     
-    host = options.host          #变量1
-    user = options.user          #变量2
-    password = options.password  #变量3
-    mode = options.mode          #变量4
-    infile = options.infile    #变量5
-    outfile = options.outfile  #变量6
+    host = options.host         
+    user = options.user         
+    password = options.password  
+    mode = options.mode        
+    infile = options.infile  
+    outfile = options.outfile 
     filtertable = options.filtertable
     filterdml = options.filterdml   
  
     rsize = 1024 * 1024 * 10
-    column_dict = mysql_column_list(host,user,password)     #获取数据库字典
+    column_dict = mysql_column_list(host,user,password)    
     read_bin_log(infile,outfile,mode,column_dict,filtertable,filterdml)
 
 if __name__ == "__main__":
